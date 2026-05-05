@@ -12,10 +12,16 @@ const io = new Server(server, {
 const users = new Map();
 const messages = new Map();
 
+// Вот эта строка ОТВЕЧАЕТ за отдачу index.html
 app.use(express.static(path.join(__dirname, 'public')));
 
+// На всякий случай — явный маршрут для главной страницы
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public', 'index.html'));
+});
+
 io.on('connection', (socket) => {
-  console.log(`🔌 Новый пользователь: ${socket.id}`);
+  console.log(`🔌 Подключился: ${socket.id}`);
 
   socket.on('login', (data) => {
     const { username, avatar } = data;
@@ -32,6 +38,7 @@ io.on('connection', (socket) => {
 
     broadcastUserList();
     socket.emit('login_success', { username, avatar: avatar || '' });
+    console.log(`✅ ${username} вошёл`);
   });
 
   socket.on('private_message', (data) => {
@@ -45,11 +52,9 @@ io.on('connection', (socket) => {
     const msg = { from, to, text, time: new Date().toISOString() };
     messages.get(room).push(msg);
     
-    // Отправляем получателю
     const recipient = Array.from(users.entries()).find(([id, u]) => u.username === to);
     if (recipient) io.to(recipient[0]).emit('private_message', msg);
     
-    // Подтверждение отправителю
     socket.emit('private_message', msg);
   });
 
@@ -70,6 +75,7 @@ io.on('connection', (socket) => {
   });
 
   socket.on('disconnect', () => {
+    console.log(`🔌 ${socket.username || socket.id} отключился`);
     users.delete(socket.id);
     broadcastUserList();
   });
@@ -85,6 +91,6 @@ function broadcastUserList() {
 }
 
 const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => {
-  console.log(`🚀 Сервер запущен на порту ${PORT}`);
+server.listen(PORT, '0.0.0.0', () => {
+  console.log(`🚀 Сервер запущен: http://localhost:${PORT}`);
 });
